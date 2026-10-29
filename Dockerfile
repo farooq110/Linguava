@@ -9,7 +9,7 @@
 # For Vercel/AWS EC2 (Node-direct), you don't need this — see docs/.
 
 # ---------- Stage 1: deps ----------
-FROM oven/bun:1.1 AS deps
+FROM oven/bun:1.4 AS deps
 WORKDIR /app
 
 # Copy lockfile + package.json first for better layer caching
@@ -17,7 +17,7 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
 # ---------- Stage 2: builder ----------
-FROM oven/bun:1.1 AS builder
+FROM oven/bun:1.4 AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -36,7 +36,7 @@ RUN bun run db:push
 RUN bun run build
 
 # ---------- Stage 3: runner ----------
-FROM oven/bun:1.1-slim AS runner
+FROM oven/bun:1.4-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
