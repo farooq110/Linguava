@@ -1,0 +1,30 @@
+// src/components/analytics/stat-card.tsx
+// Compact KPI card.
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { LucideIcon } from 'lucide-react';
+
+export function StatCard({
+  label,
+  value,
+  hint,
+  icon: Icon,
+}: {
+  label: string;
+  value: string | number;
+  hint?: string;
+  icon?: LucideIcon;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
+        {Icon ? <Icon className="h-4 w-4 text-muted-foreground" /> : null}
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-semibold">{value}</div>
+        {hint ? <p className="text-xs text-muted-foreground mt-1">{hint}</p> : null}
+      </CardContent>
+    </Card>
+  );
+}

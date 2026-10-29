@@ -1,0 +1,35 @@
+# .github/workflows/deploy-ec2.yml
+# Optional: Deploy to a self-hosted EC2 instance via SSH on push to main.
+# Requires the deploy.sh script on the server (see docs/deploy-aws-ec2.md step 11).
+#
+# Required GitHub Secrets:
+#   EC2_HOST     — Public DNS or IP of your EC2 instance
+#   EC2_USER     — Usually 'ubuntu' for Ubuntu AMIs
+#   EC2_SSH_KEY  — Entire contents of your linguava-key.pem file
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-ec2-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: SSH Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /var/www/linguava
+            ./deploy.sh

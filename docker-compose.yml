@@ -1,0 +1,44 @@
+# docker-compose.yml — Local Docker dev environment for Linguava.
+#
+# Usage:
+#   docker compose up --build
+#
+# Then open http://localhost:3000.
+#
+# For production, use this as a base and replace the SQLite volume with a
+# Postgres service (uncomment the `postgres` block below).
+
+services:
+  linguava:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-dev-secret-change-me}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - DATABASE_URL=file:/app/db/custom.db
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+    volumes:
+      - linguava-db:/app/db
+    restart: unless-stopped
+
+  # ─── Uncomment for Postgres in production ───
+  # postgres:
+  #   image: postgres:16-alpine
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: linguava
+  #     POSTGRES_USER: linguava
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+volumes:
+  linguava-db:
+  # postgres-data:

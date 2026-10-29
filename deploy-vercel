@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# deploy-vercel — Quick-reference helper for deploying Linguava to Vercel.
+#
+# This is NOT a magic script. It walks you through the deployment step-by-step,
+# printing each command and asking for confirmation before running it.
+# For the full guide, see docs/deploy-vercel.md.
+#
+# Usage:
+#   chmod +x deploy-vercel
+#   ./deploy-vercel
+#
+set -euo pipefail
+
+BOLD="\033[1m"; GREEN="\033[32m"; YELLOW="\033[33m"; CYAN="\033[36m"; RESET="\033[0m"
+
+step() {
+  echo ""
+  echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo -e "${BOLD}Step $1: $2${RESET}"
+  echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+}
+
+confirm() {
+  echo -e "${YELLOW}› $1${RESET}"
+  read -r -p "  Run this? [Y/n] " ans
+  [[ "${ans:-Y}" =~ ^[Yy]$ ]]
+}
+
+run() {
+  echo -e "${GREEN}\$ $1${RESET}"
+  eval "$1"
+}
+
+# ----------------------------------------------------------------------------
+step 1 "Verify prerequisites"
+echo "Before we start, you should have:"
+echo "  • A Vercel account (https://vercel.com/signup)"
+echo "  • The project pushed to a GitHub/GitLab/Bitbucket repo"
+echo "  • The Vercel CLI installed (we'll check now)"
+echo "  • Bun installed locally (https://bun.sh)"
+echo ""
+
+if ! command -v vercel >/dev/null 2>&1; then
+  echo "Vercel CLI not found. Installing..."
+  confirm "npm install -g vercel" && run "npm install -g vercel"
+else
+  echo "✓ Vercel CLI is installed: $(vercel --version)"
+fi
+
+if ! command -v bun >/dev/null 2>&1; then
+  echo "Bun not found. Install it from https://bun.sh and re-run this script."
+  exit 1
+else
+  echo "✓ Bun is installed: $(bun --version)"
+fi
+
+# ----------------------------------------------------------------------------
+step 2 "Generate NEXTAUTH_SECRET"
+SECRET_FILE=".env"
+if grep -q "^NEXTAUTH_SECRET=" "$SECRET_FILE" 2>/dev/null && \
+   [ -n "$(grep "^NEXTAUTH_SECRET=" "$SECRET_FILE" | cut -d= -f2)" ]; then
+  echo "✓ NEXTAUTH_SECRET is already set in .env"
+else
+  echo "Generating a fresh NEXTAUTH_SECRET..."
+  SECRET=$(openssl rand -base64 32)
+  echo "  Secret: $SECRET"
+  if confirm "Append NEXTAUTH_SECRET=$SECRET to .env?"; then
+    echo "NEXTAUTH_SECRET=$SECRET" >> .env
+    echo "  ✓ Added to .env"
+  fi
+fi
+
+# ----------------------------------------------------------------------------
+step 3 "Install dependencies and prepare the database"
+confirm "bun install && bun run db:push" && run "bun install && bun run db:push"
+
+# ----------------------------------------------------------------------------
+step 4 "Run a local production build to verify everything compiles"
+confirm "bun run build" && run "bun run build"
+
+# ----------------------------------------------------------------------------
+step 5 "Link this project to a Vercel project (interactive)"
+echo "This opens an interactive prompt. Choose:"
+echo "  • Link to new project (first time) or existing project (subsequent deploys)"
+echo "  • Framework: Next.js (auto-detected)"
+echo "  • Root directory: ./"
+echo ""
+confirm "vercel link" && run "vercel link"
+
+# ----------------------------------------------------------------------------
+step 6 "Pull remote env vars into .vercel/.env.development.local"
+confirm "vercel env pull" && run "vercel env pull"
+
+# ----------------------------------------------------------------------------
+step 7 "Deploy a preview (not production yet)"
+echo "A preview deploy gives you a URL to test before going live."
+confirm "vercel" && run "vercel"
+echo ""
+echo "Open the preview URL Vercel printed above. Test the app."
+
+# ----------------------------------------------------------------------------
+step 8 "Promote to production"
+echo "When you're happy with the preview, deploy to production."
+confirm "vercel --prod" && run "vercel --prod"
+
+# ----------------------------------------------------------------------------
+step 9 "Next steps"
+cat <<EOF
+
+${BOLD}✓ Deploy complete!${RESET}
+
+Recommended next steps (see docs/deploy-vercel.md for full details):
+
+  1. Configure environment variables in the Vercel dashboard:
+       Settings → Environment Variables
+     Set: NEXTAUTH_SECRET, NEXTAUTH_URL, DATABASE_URL
+     (and optionally GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SMTP_*)
+
+  2. Switch the database to Postgres for persistence:
+       - Vercel Postgres (easiest) — Storage → Create Database → Postgres
+       - Or Neon / Supabase / Railway
+     Update DATABASE_URL and run: bun run db:push
+
+  3. (Optional) Add a custom domain:
+       Settings → Domains → Add your domain
+
+  4. (Optional) Set up GitHub Actions for auto-deploy on push to main:
+       See docs/github-actions.md
+
+  5. (Optional) Configure Google OAuth:
+       See docs/deploy-vercel.md → Step 7
+
+Full guide: ${BOLD}docs/deploy-vercel.md${RESET}
+EOF

@@ -1,0 +1,120 @@
+// Prisma schema for Linguava - Language Translator
+// To swap database: change `provider` and `url` only. All queries go through repositories.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String?
+  emailVerified DateTime?
+  image         String?
+  provider      String    @default("credentials") // credentials | google
+  plan          String    @default("free") // free | diamond | premium
+  preferredLang String    @default("en")
+  // User-configurable translator defaults (set in /dashboard/settings)
+  defaultSourceLang String @default("ur") // default "translate from" language
+  defaultTargetLang String @default("en") // default "translate to" language
+  translationModel String @default("glm-4-flash") // which AI engine to use
+  voiceModel       String @default("web-speech") // which STT engine to use
+  role          String    @default("user") // user | admin
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  histories     ChatHistory[]
+  usage         Usage[]
+  crashReports  CrashReport[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  @@unique([identifier, token])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model ChatHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  sourceLang  String
+  targetLang  String
+  inputText   String
+  outputText  String
+  inputMode   String // text | voice
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+}
+
+model Usage {
+  id           String   @id @default(cuid())
+  userId       String
+  date         DateTime @default(now())
+  translations Int      @default(0)
+  characters   Int      @default(0)
+  voiceUses    Int      @default(0)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, date])
+}
+
+model CrashReport {
+  id        String   @id @default(cuid())
+  userId    String?
+  message   String
+  stack     String?
+  url       String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  event     String
+  metadata  String?
+  createdAt DateTime @default(now())
+}
